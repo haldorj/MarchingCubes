@@ -4,7 +4,6 @@
 #include "MarchingChunk.h"
 
 #include "DrawDebugHelpers.h"
-
 #include "VectorTypes.h"
 
 AMarchingChunk::AMarchingChunk()
