@@ -3,8 +3,8 @@
 
 #include "MarchingChunk.h"
 
+#include "Utility/MarchingTable.h"
 #include "DrawDebugHelpers.h"
-#include "VectorTypes.h"
 
 AMarchingChunk::AMarchingChunk()
 {
@@ -104,8 +104,6 @@ FVector AMarchingChunk::InterpolateVertex(FVector edgeVertex1, float valueAtVert
 	return (edgeVertex1 + (IsoLevel - valueAtVertex1) * (edgeVertex2 - edgeVertex1) / (valueAtVertex2 - valueAtVertex1));
 }
 
-
-
 void AMarchingChunk::PopulateTerrainMap()
 {
 	if (Weights.Num() == 0) {
@@ -123,11 +121,6 @@ void AMarchingChunk::PopulateTerrainMap()
 			}
 		}
 	}
-}
-
-void AMarchingChunk::ClearMeshData()
-{
-	
 }
 
 void AMarchingChunk::BuildMesh()
@@ -148,7 +141,8 @@ void AMarchingChunk::BuildMesh()
 
 	// Invert the normals by changing the order of vertex indices in Tris array.
 	// Instead of adding the indices in order, add them in reverse order.
-	for (int32 i = 0; i < Triangles.Num(); i++) {
+	for (int32 i = 0; i < Triangles.Num(); i++)
+	{
 		int32 startIndex = i * 3;
 
 		Verts.Add(FVector(Triangles[i].a.X, Triangles[i].a.Y, Triangles[i].a.Z));
@@ -161,11 +155,13 @@ void AMarchingChunk::BuildMesh()
 		Tris.Add(startIndex);
 	}
 
+	TArray<FVector> Normals = CalcAverageNormals(Verts, Tris);
+	
 	// Create the procedural mesh.
 	ProceduralMesh->CreateMeshSection(0,
 		Verts,
 		Tris,
-		TArray<FVector>(),
+		Normals,
 		TArray<FVector2D>(),
 		TArray<FColor>(),
 		TArray<FProcMeshTangent>(),
@@ -190,7 +186,6 @@ void AMarchingChunk::DrawDebugBoxes()
 
 				if (World)
 				{
-					// Call DrawDebugBox to draw the box
 					DrawDebugPoint(
 						World,
 						FVector(x,y,z) * GridMetrics.Distance,
@@ -226,4 +221,33 @@ float AMarchingChunk::GenerateNoise(FVector pos)
 	float n = Ground + Noise->GetNoise(pos.X, pos.Y, pos.Z) * Amplitude;
 	
 	return n;
+}
+
+TArray<FVector> AMarchingChunk::CalcAverageNormals(TArray<FVector> verts, TArray<int32> tris)
+{
+	TArray<FVector> vertexNormals;
+	vertexNormals.Init(FVector::ZeroVector, verts.Num());
+	// Iterates through each triangle in the mesh
+	for (int32 i = 0; i < tris.Num(); i += 3)
+	{
+		int32 i0 = tris[i + 2];
+		int32 i1 = tris[i + 1];
+		int32 i2 = tris[i];
+
+		FVector v1 = verts[i1] - verts[i0];
+		FVector v2 = verts[i2] - verts[i0];
+
+		FVector faceNormal = FVector::CrossProduct(v1, v2).GetSafeNormal();
+
+		// Accumulate the face normal to the corresponding vertices.
+		vertexNormals[i0] += faceNormal;
+		vertexNormals[i1] += faceNormal;
+		vertexNormals[i2] += faceNormal;
+	}
+	// Normalize the accumulated normals for each vertex to get the average normals.
+	for (FVector& normal : vertexNormals)
+	{
+		normal.Normalize();
+	}
+	return vertexNormals;
 }

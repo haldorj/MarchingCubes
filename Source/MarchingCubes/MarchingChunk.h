@@ -12,8 +12,6 @@
 #include "ProceduralMeshComponent.h"
 #include "Math/UnrealMathUtility.h"
 
-#include "Utility/MarchingTable.h"
-
 #include "MarchingChunk.generated.h"
 
 struct FTriangle
@@ -36,14 +34,14 @@ public:
 	void March(FVector id);
 	void PopulateTerrainMap();
 	void BuildMesh();
-	void ClearMeshData();
-	
+
 protected:
 	virtual void BeginPlay() override;
 private:
 	void DrawDebugBoxes();
 	void GenerateRandomVals();
 	float GenerateNoise(FVector pos);
+	TArray<FVector> CalcAverageNormals(TArray<FVector> verts, TArray<int32> tris);
 	
 public:
 	TArray<FTriangle> Triangles;
