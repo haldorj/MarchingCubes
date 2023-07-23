@@ -8,7 +8,7 @@
 
 AMarchingChunk::AMarchingChunk()
 {
-	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bCanEverTick = false;
 	
 	ProceduralMesh = CreateDefaultSubobject<UProceduralMeshComponent>("ProceduralMesh");
 	ProceduralMesh->SetupAttachment(GetRootComponent());
@@ -23,14 +23,19 @@ void AMarchingChunk::BeginPlay()
 	Super::BeginPlay();
 
 	PopulateTerrainMap();
+	GenerateMeshData();
 	BuildMesh();
+	
 	//DrawDebugBoxes();
 }
 
-void AMarchingChunk::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
-}
+// void AMarchingChunk::Tick(float DeltaTime)
+// {
+// 	Super::Tick(DeltaTime);
+//
+//
+//
+// }
 
 void AMarchingChunk::March(FVector id)
 {
@@ -123,7 +128,7 @@ void AMarchingChunk::PopulateTerrainMap()
 	}
 }
 
-void AMarchingChunk::BuildMesh()
+void AMarchingChunk::GenerateMeshData()
 {
 	for (int x = 0; x < GridMetrics.PointsPerChunk; x++)
 	{
@@ -136,9 +141,6 @@ void AMarchingChunk::BuildMesh()
 		}
 	}
 	
-	TArray<FVector> Verts;
-	TArray<int32> Tris;
-
 	// Invert the normals by changing the order of vertex indices in Tris array.
 	// Instead of adding the indices in order, add them in reverse order.
 	for (int32 i = 0; i < Triangles.Num(); i++)
@@ -155,17 +157,23 @@ void AMarchingChunk::BuildMesh()
 		Tris.Add(startIndex);
 	}
 
-	TArray<FVector> Normals = CalcAverageNormals(Verts, Tris);
-	
+	Normals = CalcAverageNormals(Verts, Tris);
+	UVMap = GenerateUVMap();
+}
+
+void AMarchingChunk::BuildMesh()
+{
 	// Create the procedural mesh.
 	ProceduralMesh->CreateMeshSection(0,
 		Verts,
 		Tris,
 		Normals,
-		TArray<FVector2D>(),
+		UVMap,
 		TArray<FColor>(),
 		TArray<FProcMeshTangent>(),
 		true);
+
+	ProceduralMesh->SetMaterial(0, Material);
 }
 
 void AMarchingChunk::DrawDebugBoxes()
@@ -221,6 +229,24 @@ float AMarchingChunk::GenerateNoise(FVector pos)
 	float n = Ground + Noise->GetNoise(pos.X, pos.Y, pos.Z) * Amplitude;
 	
 	return n;
+}
+
+TArray<FVector2D> AMarchingChunk::GenerateUVMap()
+{
+	TArray<FVector2D> UV;
+	float UVScale = 1.0f;
+	for (int x = 0; x < GridMetrics.PointsPerChunk; x++)
+	{
+		for (int y = 0; y < GridMetrics.PointsPerChunk; y++)
+		{
+			// Scale the x and y values to the range [0, 1]
+			float u = static_cast<float>(x) / (GridMetrics.PointsPerChunk - 1);
+			float v = static_cast<float>(y) / (GridMetrics.PointsPerChunk - 1);
+
+			UV.Add(FVector2D(u * UVScale, v * UVScale));
+		}
+	}
+	return UV;
 }
 
 TArray<FVector> AMarchingChunk::CalcAverageNormals(TArray<FVector> verts, TArray<int32> tris)

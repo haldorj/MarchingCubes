@@ -8,6 +8,7 @@
 #include "Engine/StaticMesh.h"
 #include "Utility/FastNoiseLite.h"
 #include "Utility/GridMetrics.h"
+#include "Materials/MaterialInterface.h"
 
 #include "ProceduralMeshComponent.h"
 #include "Math/UnrealMathUtility.h"
@@ -27,23 +28,35 @@ class MARCHINGCUBES_API AMarchingChunk : public AActor
 	GENERATED_BODY()
 public:	
 	AMarchingChunk();
-	virtual void Tick(float DeltaTime) override;
+	//virtual void Tick(float DeltaTime) override;
 	
+protected:
+	virtual void BeginPlay() override;
+	
+	UPROPERTY(EditAnywhere, Category=Mesh)
+	UMaterialInterface* Material;
+	
+private:
 	int IndexFromCoord(int x, int y, int z) const;
 	FVector InterpolateVertex(FVector edgeVertex1, float valueAtVertex1, FVector edgeVertex2, float valueAtVertex2) const;
 	void March(FVector id);
 	void PopulateTerrainMap();
+	void GenerateMeshData();
 	void BuildMesh();
-
-protected:
-	virtual void BeginPlay() override;
-private:
 	void DrawDebugBoxes();
 	void GenerateRandomVals();
 	float GenerateNoise(FVector pos);
+	TArray<FVector2D> GenerateUVMap();
 	TArray<FVector> CalcAverageNormals(TArray<FVector> verts, TArray<int32> tris);
 	
 public:
+	TArray<FVector> Verts;
+	TArray<int32> Tris;
+	TArray<FVector> Normals;
+	TArray<FVector2D> UVMap;
+
+	float time = 1.0;
+	
 	TArray<FTriangle> Triangles;
 	
 	TArray<float> Weights;
@@ -51,7 +64,7 @@ public:
 
 	UPROPERTY(EditAnywhere, Category=Mesh)
 	UProceduralMeshComponent* ProceduralMesh;
-	
+
 	FastNoiseLite* Noise;
 	UPROPERTY(EditAnywhere, Category=Marching)
 	float IsoLevel = 0.5f;
