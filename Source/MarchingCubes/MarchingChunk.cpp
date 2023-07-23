@@ -29,14 +29,6 @@ void AMarchingChunk::BeginPlay()
 	//DrawDebugBoxes();
 }
 
-// void AMarchingChunk::Tick(float DeltaTime)
-// {
-// 	Super::Tick(DeltaTime);
-//
-//
-//
-// }
-
 void AMarchingChunk::March(FVector id)
 {
 	// Check whether we are inside of our grid
@@ -225,8 +217,17 @@ float AMarchingChunk::GenerateNoise(FVector pos)
 	Noise->SetFractalOctaves(Octaves);
 	
 	float Ground = -pos.Z + (GroundPercent * GridMetrics.PointsPerChunk);
+
+	float NoiseValue = Noise->GetNoise(pos.X, pos.Y, pos.Z) * Amplitude;
+
+	// Calculate hard floor influence
+	HardFloorZ; // Adjust this value as needed
+	float HardFloorInfluence = FMath::Clamp((((HardFloorZ - pos.Z) * 3.0f)),0,1) * 40.0f; // Adjust the multiplier as needed
+
+	const int a = pos.Z;
+	float TerraceInfluence = a % TerraceHeight;
 	
-	float n = Ground + Noise->GetNoise(pos.X, pos.Y, pos.Z) * Amplitude;
+	float n = + Ground + NoiseValue + HardFloorInfluence + TerraceInfluence;
 	
 	return n;
 }

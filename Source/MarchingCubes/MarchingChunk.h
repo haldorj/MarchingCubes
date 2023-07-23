@@ -80,7 +80,11 @@ public:
 	int Octaves = 8;
 	// The ground percent just tells us where along the height of the chunk we want to be above ground. Note: must be from 0-1
 	UPROPERTY(EditAnywhere, Category=Noise)
-	float GroundPercent = 0.2f; 
+	float GroundPercent = 0.2f;
+	UPROPERTY(EditAnywhere, Category=Noise)
+	float HardFloorZ = 3.f;
+	UPROPERTY(EditAnywhere, Category=Noise)
+	int TerraceHeight = 5;
 
 	int GetTriangleCount() const { return Triangles.Num(); }
 };
