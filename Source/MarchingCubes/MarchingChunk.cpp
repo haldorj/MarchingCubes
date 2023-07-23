@@ -12,8 +12,9 @@ AMarchingChunk::AMarchingChunk()
 	
 	ProceduralMesh = CreateDefaultSubobject<UProceduralMeshComponent>("ProceduralMesh");
 	ProceduralMesh->SetupAttachment(GetRootComponent());
+	ProceduralMesh->SetRelativeScale3D(FVector(GridMetrics.Distance));
 	
-	// Initialize size of array to number of points per chunk (x * y * z)
+	// Initialize size of array to number of cubes in our grid (x * y * z)
 	Weights.SetNum(GridMetrics.PointsPerChunk * GridMetrics.PointsPerChunk * GridMetrics.PointsPerChunk);
 }
 
@@ -33,78 +34,84 @@ void AMarchingChunk::Tick(float DeltaTime)
 
 void AMarchingChunk::March(FVector id)
 {
+	// Check whether we are inside of our grid
 	if (id.X >= (GridMetrics.PointsPerChunk - 1) || id.Y >= (GridMetrics.PointsPerChunk) - 1 || id.Z >= (GridMetrics.PointsPerChunk - 1))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Exited function"));
 		return;
 	}
-	
+
+	// Next, get the noise values at the corners of our cubes
 	float CubeValues[8] = {
-		Weights[IndexFromCoord(id.X, id.Y, id.Z + 1)],
-		Weights[IndexFromCoord(id.X + 1, id.Y, id.Z + 1)],
-		Weights[IndexFromCoord(id.X + 1, id.Y, id.Z)],
-		Weights[IndexFromCoord(id.X, id.Y, id.Z)],
-		Weights[IndexFromCoord(id.X, id.Y + 1, id.Z + 1)],
-		Weights[IndexFromCoord(id.X + 1, id.Y + 1, id.Z + 1)],
-		Weights[IndexFromCoord(id.X + 1, id.Y + 1, id.Z)],
-		Weights[IndexFromCoord(id.X, id.Y + 1, id.Z)]
+		Weights[IndexFromCoord(id.X,		id.Y,		  id.Z + 1)],
+		Weights[IndexFromCoord(id.X + 1,	id.Y,		  id.Z + 1)],
+		Weights[IndexFromCoord(id.X + 1,	id.Y,			id.Z)],
+		Weights[IndexFromCoord(id.X,		id.Y,			id.Z)],
+		Weights[IndexFromCoord(id.X,		id.Y + 1,	  id.Z + 1)],
+		Weights[IndexFromCoord(id.X + 1,	id.Y + 1,	  id.Z + 1)],
+		Weights[IndexFromCoord(id.X + 1,	id.Y + 1,		id.Z)],
+		Weights[IndexFromCoord(id.X,		id.Y + 1,		id.Z)]
 	 };
 
+	// Get the cube configuration
 	int CubeIndex = 0;
-	if (CubeValues[0] < GroundPercent) CubeIndex |= 1;
-	if (CubeValues[1] < GroundPercent) CubeIndex |= 2;
-	if (CubeValues[2] < GroundPercent) CubeIndex |= 4;
-	if (CubeValues[3] < GroundPercent) CubeIndex |= 8;
-	if (CubeValues[4] < GroundPercent) CubeIndex |= 16;
-	if (CubeValues[5] < GroundPercent) CubeIndex |= 32;
-	if (CubeValues[6] < GroundPercent) CubeIndex |= 64;
-	if (CubeValues[7] < GroundPercent) CubeIndex |= 128;
+	if (CubeValues[0] < IsoLevel) CubeIndex |= 1;
+	if (CubeValues[1] < IsoLevel) CubeIndex |= 2;
+	if (CubeValues[2] < IsoLevel) CubeIndex |= 4;
+	if (CubeValues[3] < IsoLevel) CubeIndex |= 8;
+	if (CubeValues[4] < IsoLevel) CubeIndex |= 16;
+	if (CubeValues[5] < IsoLevel) CubeIndex |= 32;
+	if (CubeValues[6] < IsoLevel) CubeIndex |= 64;
+	if (CubeValues[7] < IsoLevel) CubeIndex |= 128;
 
-	const int* edges = TriTable[CubeIndex];
+	// Get the triangle indices
+	const int* Edges = TriTable[CubeIndex];
 
-	for (int i = 0; edges[i] != -1; i += 3)
+	
+
+	for (int i = 0; Edges[i] != -1; i += 3)
 	{
 		// First edge lies between vertex e00 and vertex e01
-		int e00 = EdgeConnections[edges[i]][0];
-		int e01 = EdgeConnections[edges[i]][1];
+		int e00 = EdgeConnections[Edges[i]][0];
+		int e01 = EdgeConnections[Edges[i]][1];
 
 		// Second edge lies between vertex e10 and vertex e11
-		int e10 = EdgeConnections[edges[i + 1]][0];
-		int e11 = EdgeConnections[edges[i + 1]][1];
+		int e10 = EdgeConnections[Edges[i + 1]][0];
+		int e11 = EdgeConnections[Edges[i + 1]][1];
 
 		// Third edge lies between vertex e20 and vertex e21
-		int e20 = EdgeConnections[edges[i + 2]][0];
-		int e21 = EdgeConnections[edges[i + 2]][1];
+		int e20 = EdgeConnections[Edges[i + 2]][0];
+		int e21 = EdgeConnections[Edges[i + 2]][1];
 
 		FTriangle Tri;
-		
+
+		// Interpolate between the points on the edge to find the exact position for the vertices of the triangles
 		Tri.a = InterpolateVertex(CornerOffsets[e00], CubeValues[e00], CornerOffsets[e01], CubeValues[e01]) + id;
 		Tri.b = InterpolateVertex(CornerOffsets[e10], CubeValues[e10], CornerOffsets[e11], CubeValues[e11]) + id;
 		Tri.c = InterpolateVertex(CornerOffsets[e20], CubeValues[e20], CornerOffsets[e21], CubeValues[e21]) + id;
-
-		Triangles.Add(Tri);
 		
-		//Triangles.Add(Vertices.Num() - 2);
-
-		UE_LOG(LogTemp, Warning, TEXT("Completed Marching"));
+		// Add our triangle to the list.
+		Triangles.Add(Tri);
 	}
 }
 
-int AMarchingChunk::IndexFromCoord(int x, int y, int z)
+int AMarchingChunk::IndexFromCoord(int x, int y, int z) const
 {
 	return x + GridMetrics.PointsPerChunk * (y + GridMetrics.PointsPerChunk * z);
 }
 
-FVector AMarchingChunk::InterpolateVertex(FVector edgeVertex1, float valueAtVertex1, FVector edgeVertex2, float valueAtVertex2)
+FVector AMarchingChunk::InterpolateVertex(FVector edgeVertex1, float valueAtVertex1, FVector edgeVertex2, float valueAtVertex2) const
 {
-	return (edgeVertex1 + (GroundPercent - valueAtVertex1) * (edgeVertex2 - edgeVertex1) / (valueAtVertex2 - valueAtVertex1));
+	return (edgeVertex1 + (IsoLevel - valueAtVertex1) * (edgeVertex2 - edgeVertex1) / (valueAtVertex2 - valueAtVertex1));
 }
+
+
 
 void AMarchingChunk::PopulateTerrainMap()
 {
 	if (Weights.Num() == 0) {
 		return;
 	}
+	
 	for (int x = 0; x < GridMetrics.PointsPerChunk; x++)
 	{
 		for (int y = 0; y < GridMetrics.PointsPerChunk; y++)
@@ -112,10 +119,7 @@ void AMarchingChunk::PopulateTerrainMap()
 			for (int z = 0; z < GridMetrics.PointsPerChunk; z++)
 			{
 				int index = x + GridMetrics.PointsPerChunk * (y + GridMetrics.PointsPerChunk * z);
-				
 				Weights[index] = GenerateNoise(FVector(x, y, z));
-				
-				March(FVector(x,y,z));
 			}
 		}
 	}
@@ -128,9 +132,22 @@ void AMarchingChunk::ClearMeshData()
 
 void AMarchingChunk::BuildMesh()
 {
+	for (int x = 0; x < GridMetrics.PointsPerChunk; x++)
+	{
+		for (int y = 0; y < GridMetrics.PointsPerChunk; y++)
+		{
+			for (int z = 0; z < GridMetrics.PointsPerChunk; z++)
+			{
+				March(FVector(x,y,z));
+			}
+		}
+	}
+	
 	TArray<FVector> Verts;
 	TArray<int32> Tris;
 
+	// Invert the normals by changing the order of vertex indices in Tris array.
+	// Instead of adding the indices in order, add them in reverse order.
 	for (int32 i = 0; i < Triangles.Num(); i++) {
 		int32 startIndex = i * 3;
 
@@ -138,18 +155,21 @@ void AMarchingChunk::BuildMesh()
 		Verts.Add(FVector(Triangles[i].b.X, Triangles[i].b.Y, Triangles[i].b.Z));
 		Verts.Add(FVector(Triangles[i].c.X, Triangles[i].c.Y, Triangles[i].c.Z));
 
-		Tris.Add(startIndex);
-		Tris.Add(startIndex + 1);
+		// Add indices in reverse order to invert the normals.
 		Tris.Add(startIndex + 2);
+		Tris.Add(startIndex + 1);
+		Tris.Add(startIndex);
 	}
+
+	// Create the procedural mesh.
 	ProceduralMesh->CreateMeshSection(0,
-	Verts,
-	Tris,
-	TArray<FVector>(),
-	TArray<FVector2D>(),
-	TArray<FColor>(),
-	TArray<FProcMeshTangent>(),
-	true);
+		Verts,
+		Tris,
+		TArray<FVector>(),
+		TArray<FVector2D>(),
+		TArray<FColor>(),
+		TArray<FProcMeshTangent>(),
+		true);
 }
 
 void AMarchingChunk::DrawDebugBoxes()
@@ -190,8 +210,6 @@ void AMarchingChunk::GenerateRandomVals()
 	for (int i = 0; i < Weights.Num(); i++)
 	{
 		Weights[i] = FMath::FRandRange(0.0f, 1.0f);
-		
-		//UE_LOG(LogTemp, Warning, TEXT("Vert: %f \n"), Weights[i]);
 	}
 }
 
@@ -206,7 +224,6 @@ float AMarchingChunk::GenerateNoise(FVector pos)
 	float Ground = -pos.Z + (GroundPercent * GridMetrics.PointsPerChunk);
 	
 	float n = Ground + Noise->GetNoise(pos.X, pos.Y, pos.Z) * Amplitude;
-	//UE_LOG(LogTemp, Warning, TEXT("NoiseVal: %f \n"), n);
 	
 	return n;
 }
