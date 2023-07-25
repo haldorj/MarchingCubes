@@ -28,7 +28,7 @@ class MARCHINGCUBES_API AMarchingChunk : public AActor
 	GENERATED_BODY()
 public:	
 	AMarchingChunk();
-	//virtual void Tick(float DeltaTime) override;
+	virtual void Tick(float DeltaTime) override;
 	
 protected:
 	virtual void BeginPlay() override;
@@ -69,6 +69,9 @@ public:
 	UPROPERTY(EditAnywhere, Category=Marching)
 	float IsoLevel = 0.5f;
 	
+	// Seed for random variation (Default: 1337)
+	UPROPERTY(EditAnywhere, Category=Noise)
+	int32 Seed = 1337;
 	// The amplitude determines how high our terrain will reach, high amplitude means high mountains.
 	UPROPERTY(EditAnywhere, Category=Noise)
 	float Amplitude = 5.0f;

@@ -29,6 +29,15 @@ void AMarchingChunk::BeginPlay()
 	//DrawDebugBoxes();
 }
 
+void AMarchingChunk::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+	
+	//PopulateTerrainMap();
+	//GenerateMeshData();
+	//BuildMesh();
+}
+
 void AMarchingChunk::March(FVector id)
 {
 	// Check whether we are inside of our grid
@@ -156,6 +165,7 @@ void AMarchingChunk::GenerateMeshData()
 void AMarchingChunk::BuildMesh()
 {
 	// Create the procedural mesh.
+	
 	ProceduralMesh->CreateMeshSection(0,
 		Verts,
 		Tris,
@@ -211,23 +221,19 @@ void AMarchingChunk::GenerateRandomVals()
 float AMarchingChunk::GenerateNoise(FVector pos)
 {
 	Noise = new FastNoiseLite();
+	
+	Noise->SetSeed(Seed);
 	Noise->SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
 	Noise->SetFractalType(FastNoiseLite::FractalType_Ridged);
 	Noise->SetFrequency(Frequency);
 	Noise->SetFractalOctaves(Octaves);
 	
 	float Ground = -pos.Z + (GroundPercent * GridMetrics.PointsPerChunk);
-
 	float NoiseValue = Noise->GetNoise(pos.X, pos.Y, pos.Z) * Amplitude;
-
-	// Calculate hard floor influence
-	HardFloorZ; // Adjust this value as needed
 	float HardFloorInfluence = FMath::Clamp((((HardFloorZ - pos.Z) * 3.0f)),0,1) * 40.0f; // Adjust the multiplier as needed
-
-	const int a = pos.Z;
-	float TerraceInfluence = a % TerraceHeight;
+	float Terracing = static_cast<int>(pos.Z) % TerraceHeight;
 	
-	float n = + Ground + NoiseValue + HardFloorInfluence + TerraceInfluence;
+	float n = + Ground + NoiseValue + HardFloorInfluence + Terracing;
 	
 	return n;
 }
