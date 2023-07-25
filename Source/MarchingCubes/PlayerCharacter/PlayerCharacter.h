@@ -33,6 +33,7 @@ protected:
     void Turn(float Value);
 	void LookUp(float Value);
 	void EditWeights(float terraform);
+	void DeformMesh(float terraform);
 
 	void ApplyThrust();
 	void TraceUnderCrosshairs(FHitResult& TraceHitResult);

@@ -11,23 +11,12 @@ AMarchingChunk::AMarchingChunk()
 	PrimaryActorTick.bCanEverTick = true;
 	
 	ProceduralMesh = CreateDefaultSubobject<UProceduralMeshComponent>("ProceduralMesh");
-	ProceduralMesh->SetupAttachment(GetRootComponent());
-	ProceduralMesh->SetRelativeScale3D(FVector(GridMetrics.Distance));
+	RootComponent = ProceduralMesh;
 	
+	ProceduralMesh->SetRelativeScale3D(FVector(GridMetrics.Distance));
+
 	// Initialize size of array to number of cubes in our grid (x * y * z)
 	Weights.SetNum(GridMetrics.PointsPerChunk * GridMetrics.PointsPerChunk * GridMetrics.PointsPerChunk);
-}
-
-void AMarchingChunk::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
-
-	time -= DeltaTime;
-	if (time <= 0)
-	{
-		UpdateMesh();
-		time = 5;
-	}
 }
 
 void AMarchingChunk::BeginPlay()
@@ -36,7 +25,13 @@ void AMarchingChunk::BeginPlay()
 
 	PopulateTerrainMap();
 	Initialize();
+	UpdateMesh();
 	//DrawDebugBoxes();
+}
+
+void AMarchingChunk::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
 }
 
 void AMarchingChunk::March(FVector id)
@@ -101,7 +96,23 @@ void AMarchingChunk::March(FVector id)
 
 void AMarchingChunk::UpdateMesh()
 {
-	Initialize();
+	if (ProceduralMesh)
+	{
+		// Update the procedural mesh component with the modified vertex data
+		ConstructMesh();
+
+		// Optionally, update other mesh data (normals, UVs, tangents, etc.) if needed
+
+		Normals = CalcAverageNormals(Verts, Tris);
+		
+		// Notify the procedural mesh component that it needs to update
+		ProceduralMesh->UpdateMeshSection(0, Verts, 	Normals,
+		UVMap,
+		TArray<FColor>(),
+		TArray<FProcMeshTangent>());
+
+		ProceduralMesh->SetMaterial(0, Material);
+	}
 }
 
 int AMarchingChunk::IndexFromCoord(int x, int y, int z) const
@@ -174,6 +185,7 @@ void AMarchingChunk::Initialize()
 void AMarchingChunk::ConstructMesh()
 {
 	ProceduralMesh->ClearAllMeshSections();
+	
 	ProceduralMesh->CreateMeshSection(0,
 	Verts,
 	Tris,
@@ -182,9 +194,6 @@ void AMarchingChunk::ConstructMesh()
 	TArray<FColor>(),
 	TArray<FProcMeshTangent>(),
 	true);
-
-	ProceduralMesh->SetMaterial(0, Material);
-	ProceduralMesh->MarkRenderStateDirty();
 }
 
 void AMarchingChunk::DrawDebugBoxes()

@@ -60,7 +60,7 @@ void APlayerCharacter::Tick(float DeltaTime)
 
 	FHitResult HitResult;
 	TraceUnderCrosshairs(HitResult);
-	
+
 	if (bIsSpaceBarDown && CurrentFuel > 0.0f)
 	{
 		ApplyThrust();
@@ -81,7 +81,7 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &APlayerCharacter::Jump);
 	PlayerInputComponent->BindAction("StopJumping", IE_Released, this, &APlayerCharacter::StopJumping); 
 
-	PlayerInputComponent->BindAxis("Terraform", this, &APlayerCharacter::Terraform);
+	PlayerInputComponent->BindAxis("Terraform", this, &APlayerCharacter::DeformMesh);
 	PlayerInputComponent->BindAxis("MoveForward", this, &APlayerCharacter::MoveForward);
 	PlayerInputComponent->BindAxis("MoveRight", this, &APlayerCharacter::MoveRight);
 	PlayerInputComponent->BindAxis("Turn", this, &APlayerCharacter::Turn);
@@ -134,7 +134,7 @@ void APlayerCharacter::TraceUnderCrosshairs(FHitResult& TraceHitResult)
 			DrawDebugSphere(
 			GetWorld(),
 			TraceHitResult.ImpactPoint,
-			BrushSize,
+			BrushSize*10,
 			12,
 			FColor::Green
 			);
@@ -188,6 +188,11 @@ void APlayerCharacter::EditWeights(float terraform)
 {
 	if (TraceHitInfo.GetActor() && TraceHitInfo.GetActor()->IsA<AMarchingChunk>())
 	{
+		// if(GEngine)
+		// 	GEngine->AddOnScreenDebugMessage(-1, 0.f, FColor::Yellow, FString::Printf(TEXT("HitLoc: x: %f y: %f z: %f \n"),
+		// 		TraceHitInfo.ImpactPoint.X,TraceHitInfo.ImpactPoint.Y,TraceHitInfo.ImpactPoint.Z));
+
+		
 		// The hit actor is of type AMarchingChunk
 		AMarchingChunk* Chunk = Cast<AMarchingChunk>(TraceHitInfo.GetActor());
 		if (Chunk)
@@ -204,13 +209,15 @@ void APlayerCharacter::EditWeights(float terraform)
 						{
 							return;
 						}
+
+						float Distance = FVector::Dist(TraceHitInfo.ImpactPoint, FVector(x,y,z) * Chunk->GridMetrics.Distance);
 						
-						if (FVector::Dist(FVector(x,y,z) * Chunk->GridMetrics.Distance, TraceHitInfo.Location) <= BrushSize)
+						if (Distance <= BrushSize)
 						{
 							if(GEngine)
-								GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, FString::Printf(TEXT("1 /n")));
+								GEngine->AddOnScreenDebugMessage(-1, 0.f, FColor::Yellow, FString::Printf(TEXT("1 \n")));
 							Chunk->Weights[Chunk->IndexFromCoord( x, y, z )] += terraform * TerraformStrength;
-							Chunk->UpdateMesh();
+							//Chunk->UpdateMesh();
 						}
 					}
 				}
@@ -219,3 +226,49 @@ void APlayerCharacter::EditWeights(float terraform)
 	}
 }
 
+void APlayerCharacter::DeformMesh(float terraform)
+{
+	// Check if the hit result has a valid actor and if it's the terrain you want to deform
+	if (TraceHitInfo.GetActor() && TraceHitInfo.GetActor()->IsA<AMarchingChunk>())
+	{
+		// Cast the hit actor to the terrain type (AMarchingChunk)
+		AMarchingChunk* Chunk = Cast<AMarchingChunk>(TraceHitInfo.GetActor());
+		if (Chunk)
+		{
+			// Get the hit position in local space of the terrain
+			FVector HitPositionLocal = Chunk->GetTransform().InverseTransformPosition(TraceHitInfo.ImpactPoint);
+
+			// Calculate the influence area based on the brush size
+			float BrushRadiusSq = BrushSize * BrushSize;
+			float BrushRadiusSqInverse = 1.0f / BrushRadiusSq;
+
+			// Perform terrain deformation within the influence area
+			for (int32 i = 0; i < Chunk->Verts.Num(); i++)
+			{
+				FVector VertexLocal = Chunk->Verts[i];
+				float DistSq = (VertexLocal - HitPositionLocal).SizeSquared();
+				if (DistSq < BrushRadiusSq)
+				{
+					// Calculate influence based on distance
+					float Influence = FMath::Clamp(1.0f - (DistSq * BrushRadiusSqInverse), 0.0f, 1.0f);
+
+					// Apply the deformation to the vertex
+					
+					
+					// VertexLocal.X += 0.33*terraform * Influence * TerraformStrength * TraceHitInfo.Normal.Normalize();
+					// VertexLocal.Y += 0.33*terraform * Influence * TerraformStrength * TraceHitInfo.Normal.Normalize();
+					// VertexLocal.Z += 0.33*terraform * Influence * TerraformStrength * TraceHitInfo.Normal.Normalize();
+
+					// Update the vertex in the chunk's vertices array
+
+					FVector n = TraceHitInfo.Normal.GetSafeNormal() * terraform * Influence * TerraformStrength;
+					VertexLocal += n;
+					Chunk->Verts[i] = VertexLocal;
+				}
+			}
+
+			// Update the procedural mesh with the modified vertices
+			Chunk->UpdateMesh();
+		}
+	}
+}
