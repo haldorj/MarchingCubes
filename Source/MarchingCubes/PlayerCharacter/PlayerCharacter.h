@@ -4,6 +4,9 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+
+#include "MarchingCubes/MarchingChunk.h"
+
 #include "PlayerCharacter.generated.h"
 
 #define TRACE_LENGTH 80000.f
@@ -23,19 +26,24 @@ protected:
 
 	void Jump() override;
 	void StopJumping() override;
-	
+
+	void Terraform(float Value);
 	void MoveForward(float Value);
     void MoveRight(float Value);
     void Turn(float Value);
 	void LookUp(float Value);
+	void EditWeights(float terraform);
 
 	void ApplyThrust();
 	void TraceUnderCrosshairs(FHitResult& TraceHitResult);
 private:
-	bool Terraform;
+	FHitResult TraceHitInfo;
 	
 	UPROPERTY(EditAnywhere, Category = "Terraforming")
-	float BrushSize = 2.0f;
+	float TerraformStrength = 1.0f;
+	
+	UPROPERTY(EditAnywhere, Category = "Terraforming")
+	float BrushSize = 50.0f;
 	
 	UPROPERTY(EditAnywhere, Category = "Jetpack")
 	float ThrustForce;

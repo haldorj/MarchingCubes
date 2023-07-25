@@ -8,7 +8,7 @@
 
 AMarchingChunk::AMarchingChunk()
 {
-	PrimaryActorTick.bCanEverTick = false;
+	PrimaryActorTick.bCanEverTick = true;
 	
 	ProceduralMesh = CreateDefaultSubobject<UProceduralMeshComponent>("ProceduralMesh");
 	ProceduralMesh->SetupAttachment(GetRootComponent());
@@ -18,24 +18,25 @@ AMarchingChunk::AMarchingChunk()
 	Weights.SetNum(GridMetrics.PointsPerChunk * GridMetrics.PointsPerChunk * GridMetrics.PointsPerChunk);
 }
 
+void AMarchingChunk::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	time -= DeltaTime;
+	if (time <= 0)
+	{
+		UpdateMesh();
+		time = 5;
+	}
+}
+
 void AMarchingChunk::BeginPlay()
 {
 	Super::BeginPlay();
 
 	PopulateTerrainMap();
-	GenerateMeshData();
-	BuildMesh();
-	
+	Initialize();
 	//DrawDebugBoxes();
-}
-
-void AMarchingChunk::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
-	
-	//PopulateTerrainMap();
-	//GenerateMeshData();
-	//BuildMesh();
 }
 
 void AMarchingChunk::March(FVector id)
@@ -71,9 +72,7 @@ void AMarchingChunk::March(FVector id)
 
 	// Get the triangle indices
 	const int* Edges = TriTable[CubeIndex];
-
 	
-
 	for (int i = 0; Edges[i] != -1; i += 3)
 	{
 		// First edge lies between vertex e00 and vertex e01
@@ -98,6 +97,11 @@ void AMarchingChunk::March(FVector id)
 		// Add our triangle to the list.
 		Triangles.Add(Tri);
 	}
+}
+
+void AMarchingChunk::UpdateMesh()
+{
+	Initialize();
 }
 
 int AMarchingChunk::IndexFromCoord(int x, int y, int z) const
@@ -129,8 +133,31 @@ void AMarchingChunk::PopulateTerrainMap()
 	}
 }
 
-void AMarchingChunk::GenerateMeshData()
+void AMarchingChunk::GenerateMeshData(TArray<FTriangle> triangles)
 {
+	// Invert the normals by changing the order of vertex indices in Tris array.
+	// Instead of adding the indices in order, add them in reverse order.
+	for (int32 i = 0; i < triangles.Num(); i++)
+	{
+		int32 startIndex = i * 3;
+
+		Verts.Add(FVector(triangles[i].a.X, triangles[i].a.Y, triangles[i].a.Z));
+		Verts.Add(FVector(triangles[i].b.X, triangles[i].b.Y, triangles[i].b.Z));
+		Verts.Add(FVector(triangles[i].c.X, triangles[i].c.Y, triangles[i].c.Z));
+
+		// Add indices in reverse order to invert the normals.
+		Tris.Add(startIndex + 2);
+		Tris.Add(startIndex + 1);
+		Tris.Add(startIndex);
+	}
+	Normals = CalcAverageNormals(Verts, Tris);
+	UVMap = GenerateUVMap();
+	ConstructMesh();
+}
+
+void AMarchingChunk::Initialize()
+{
+	Triangles.Empty();
 	for (int x = 0; x < GridMetrics.PointsPerChunk; x++)
 	{
 		for (int y = 0; y < GridMetrics.PointsPerChunk; y++)
@@ -141,41 +168,23 @@ void AMarchingChunk::GenerateMeshData()
 			}
 		}
 	}
-	
-	// Invert the normals by changing the order of vertex indices in Tris array.
-	// Instead of adding the indices in order, add them in reverse order.
-	for (int32 i = 0; i < Triangles.Num(); i++)
-	{
-		int32 startIndex = i * 3;
-
-		Verts.Add(FVector(Triangles[i].a.X, Triangles[i].a.Y, Triangles[i].a.Z));
-		Verts.Add(FVector(Triangles[i].b.X, Triangles[i].b.Y, Triangles[i].b.Z));
-		Verts.Add(FVector(Triangles[i].c.X, Triangles[i].c.Y, Triangles[i].c.Z));
-
-		// Add indices in reverse order to invert the normals.
-		Tris.Add(startIndex + 2);
-		Tris.Add(startIndex + 1);
-		Tris.Add(startIndex);
-	}
-
-	Normals = CalcAverageNormals(Verts, Tris);
-	UVMap = GenerateUVMap();
+	GenerateMeshData(Triangles);
 }
 
-void AMarchingChunk::BuildMesh()
+void AMarchingChunk::ConstructMesh()
 {
-	// Create the procedural mesh.
-	
+	ProceduralMesh->ClearAllMeshSections();
 	ProceduralMesh->CreateMeshSection(0,
-		Verts,
-		Tris,
-		Normals,
-		UVMap,
-		TArray<FColor>(),
-		TArray<FProcMeshTangent>(),
-		true);
+	Verts,
+	Tris,
+	Normals,
+	UVMap,
+	TArray<FColor>(),
+	TArray<FProcMeshTangent>(),
+	true);
 
 	ProceduralMesh->SetMaterial(0, Material);
+	ProceduralMesh->MarkRenderStateDirty();
 }
 
 void AMarchingChunk::DrawDebugBoxes()

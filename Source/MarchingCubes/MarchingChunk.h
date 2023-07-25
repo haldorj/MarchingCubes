@@ -30,6 +30,10 @@ public:
 	AMarchingChunk();
 	virtual void Tick(float DeltaTime) override;
 	
+	int IndexFromCoord(int x, int y, int z) const;
+
+	void UpdateMesh();
+	
 protected:
 	virtual void BeginPlay() override;
 	
@@ -37,12 +41,14 @@ protected:
 	UMaterialInterface* Material;
 	
 private:
-	int IndexFromCoord(int x, int y, int z) const;
 	FVector InterpolateVertex(FVector edgeVertex1, float valueAtVertex1, FVector edgeVertex2, float valueAtVertex2) const;
+
+	void Initialize();
 	void March(FVector id);
 	void PopulateTerrainMap();
-	void GenerateMeshData();
-	void BuildMesh();
+	void GenerateMeshData(TArray<FTriangle> triangles);
+	void ConstructMesh();
+	
 	void DrawDebugBoxes();
 	void GenerateRandomVals();
 	float GenerateNoise(FVector pos);
@@ -55,7 +61,7 @@ public:
 	TArray<FVector> Normals;
 	TArray<FVector2D> UVMap;
 
-	float time = 1.0;
+	float time = 6.0;
 	
 	TArray<FTriangle> Triangles;
 	

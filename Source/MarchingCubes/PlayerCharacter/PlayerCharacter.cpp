@@ -9,6 +9,9 @@
 #include "GameFramework/PawnMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Kismet/GameplayStatics.h"
+#include "MarchingCubes/MarchingChunk.h"
+
+#include "MarchingCubes/Utility/GridMetrics.h"
 
 
 APlayerCharacter::APlayerCharacter()
@@ -78,6 +81,7 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &APlayerCharacter::Jump);
 	PlayerInputComponent->BindAction("StopJumping", IE_Released, this, &APlayerCharacter::StopJumping); 
 
+	PlayerInputComponent->BindAxis("Terraform", this, &APlayerCharacter::Terraform);
 	PlayerInputComponent->BindAxis("MoveForward", this, &APlayerCharacter::MoveForward);
 	PlayerInputComponent->BindAxis("MoveRight", this, &APlayerCharacter::MoveRight);
 	PlayerInputComponent->BindAxis("Turn", this, &APlayerCharacter::Turn);
@@ -111,12 +115,9 @@ void APlayerCharacter::TraceUnderCrosshairs(FHitResult& TraceHitResult)
 	if (bScreenToWorld)
 	{
 		FVector Start = CrosshairWorldPosition;
-
-		if (this)
-		{
-			float DistanceToCharacter = (this->GetActorLocation() - Start).Size();
-			Start += CrosshairWorldDirection * (DistanceToCharacter + 100.f);
-		}
+		
+		float DistanceToCharacter = (this->GetActorLocation() - Start).Size();
+		Start += CrosshairWorldDirection * (DistanceToCharacter + 100.f);
 
 		FVector End = Start + CrosshairWorldDirection * TRACE_LENGTH;
 
@@ -127,19 +128,16 @@ void APlayerCharacter::TraceUnderCrosshairs(FHitResult& TraceHitResult)
 			ECollisionChannel::ECC_Visibility
 		);
 		
-		FBox MyBox = FBox(FVector(0,0,0), FVector(200,200,200));
-		
 		if (!TraceHitResult.bBlockingHit) TraceHitResult.ImpactPoint = End;
 		else
 		{
 			DrawDebugSphere(
 			GetWorld(),
 			TraceHitResult.ImpactPoint,
-			50.f,
+			BrushSize,
 			12,
 			FColor::Green
 			);
-
 			DrawDebugPoint(
 			GetWorld(),
 			TraceHitResult.ImpactPoint,
@@ -147,7 +145,13 @@ void APlayerCharacter::TraceUnderCrosshairs(FHitResult& TraceHitResult)
 			FColor::Green
 			);
 		}
+		TraceHitInfo = TraceHitResult;
 	}
+}
+
+void APlayerCharacter::Terraform(float Value)
+{
+	EditWeights(Value);
 }
 
 void APlayerCharacter::MoveForward(float Value)
@@ -178,5 +182,40 @@ void APlayerCharacter::Turn(float Value)
 void APlayerCharacter::LookUp(float Value)
 {
 	AddControllerPitchInput(Value);
+}
+
+void APlayerCharacter::EditWeights(float terraform)
+{
+	if (TraceHitInfo.GetActor() && TraceHitInfo.GetActor()->IsA<AMarchingChunk>())
+	{
+		// The hit actor is of type AMarchingChunk
+		AMarchingChunk* Chunk = Cast<AMarchingChunk>(TraceHitInfo.GetActor());
+		if (Chunk)
+		{
+			int ChunkSize = Chunk->GridMetrics.PointsPerChunk;
+			for (int x = 0; x < ChunkSize; x++)
+			{
+				for (int y = 0; y < ChunkSize; y++)
+				{
+					for (int z = 0; z < ChunkSize; z++)
+					{
+						// Check whether we are inside of our grid
+						if (x >= (ChunkSize - 1) || y >= (ChunkSize - 1) || z >= (ChunkSize - 1))
+						{
+							return;
+						}
+						
+						if (FVector::Dist(FVector(x,y,z) * Chunk->GridMetrics.Distance, TraceHitInfo.Location) <= BrushSize)
+						{
+							if(GEngine)
+								GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, FString::Printf(TEXT("1 /n")));
+							Chunk->Weights[Chunk->IndexFromCoord( x, y, z )] += terraform * TerraformStrength;
+							Chunk->UpdateMesh();
+						}
+					}
+				}
+			}
+		}
+	}
 }
 
