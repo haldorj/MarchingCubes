@@ -22,12 +22,10 @@ AMarchingChunk::AMarchingChunk()
 void AMarchingChunk::BeginPlay()
 {
 	Super::BeginPlay();
-	
-	Seed = FMath::Rand();
-	PopulateTerrainMap();
-	Initialize();
-	UpdateMesh();
-	
+
+	//Seed = FMath::Rand();
+
+	UE_LOG(LogTemp, Warning, TEXT("X: %i, Y: %i"), InitialX, InitialY);
 	//DrawDebugBoxes();
 }
 
@@ -232,7 +230,7 @@ void AMarchingChunk::DrawDebugBoxes()
 					DrawDebugPoint(
 						World,
 						FVector(x,y,z) * GridMetrics.Distance,
-						8,
+						2,
 						Color,
 						true
 					);
@@ -247,13 +245,19 @@ float AMarchingChunk::GenerateNoise(FVector pos)
 	Noise = new FastNoiseLite();
 	
 	Noise->SetSeed(Seed);
+	
+	Noise->SetSeed(Seed);
 	Noise->SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
 	Noise->SetFractalType(FastNoiseLite::FractalType_Ridged);
 	Noise->SetFrequency(Frequency);
 	Noise->SetFractalOctaves(Octaves);
 	
 	float Ground = -pos.Z + (GroundPercent * GridMetrics.PointsPerChunk);
-	float NoiseValue = Noise->GetNoise(pos.X, pos.Y, pos.Z) * Amplitude;
+	
+	float NoiseValue = Noise->GetNoise(pos.X + InitialX * GridMetrics.PointsPerChunk - 1,
+									pos.Y + InitialY * GridMetrics.PointsPerChunk - 1,
+									pos.Z) * Amplitude;
+	
 	float HardFloorInfluence = FMath::Clamp((((HardFloorZ - pos.Z) * 3.0f)),0,1) * 40.0f; // Adjust the multiplier as needed
 	float Terracing = static_cast<int>(pos.Z) % TerraceHeight;
 	

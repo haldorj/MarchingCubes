@@ -33,7 +33,14 @@ public:
 	int IndexFromCoord(int x, int y, int z) const;
 
 	void UpdateMesh();
-	
+
+	void Initialize();
+	void March(FVector id);
+	void PopulateTerrainMap();
+	void GenerateMeshData(TArray<FTriangle> triangles);
+	void ConstructMesh();
+	void ClearMesh();
+	void DrawDebugBoxes();
 protected:
 	virtual void BeginPlay() override;
 	
@@ -43,20 +50,14 @@ protected:
 private:
 	FVector InterpolateVertex(FVector edgeVertex1, float valueAtVertex1, FVector edgeVertex2, float valueAtVertex2) const;
 
-	void Initialize();
-	void March(FVector id);
-	void PopulateTerrainMap();
-	void GenerateMeshData(TArray<FTriangle> triangles);
-	void ConstructMesh();
-	void ClearMesh();
-	
-	void DrawDebugBoxes();
-	void GenerateRandomVals();
+
 	float GenerateNoise(FVector pos);
 	TArray<FVector2D> GenerateUVMap();
 	TArray<FVector> CalcAverageNormals(TArray<FVector> verts, TArray<int32> tris);
 	
 public:
+	int InitialX, InitialY;
+	
 	TArray<FVector> Verts;
 	TArray<int32> Tris;
 	TArray<FVector> Normals;

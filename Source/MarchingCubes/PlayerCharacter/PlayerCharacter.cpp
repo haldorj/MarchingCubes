@@ -66,10 +66,10 @@ void APlayerCharacter::Tick(float DeltaTime)
 		ApplyThrust();
 		CurrentFuel -= DeltaTime * 10;
 	}
-	// if (CurrentFuel < 100.f)
-	// {
-	// 	CurrentFuel += DeltaTime;
-	// }
+	if (CurrentFuel < 100.f)
+		CurrentFuel += DeltaTime;
+
+	
 	if(GEngine)
 		GEngine->AddOnScreenDebugMessage(-1, 0.f, FColor::Yellow, FString::Printf(TEXT("Jetpack fuel: %i\n"), static_cast<int>(CurrentFuel)));	
 }
@@ -236,6 +236,8 @@ void APlayerCharacter::DeformMesh(float terraform)
 		AMarchingChunk* Chunk = Cast<AMarchingChunk>(TraceHitInfo.GetActor());
 		if (Chunk)
 		{
+			if(GEngine)
+				GEngine->AddOnScreenDebugMessage(-1, 0.f, FColor::Yellow, FString::Printf(TEXT("Seed: %i\n"), Chunk->Seed));			
 			// Get the hit position in local space of the terrain
 			FVector HitPositionLocal = Chunk->GetTransform().InverseTransformPosition(TraceHitInfo.ImpactPoint);
 
