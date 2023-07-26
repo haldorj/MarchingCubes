@@ -134,7 +134,7 @@ void APlayerCharacter::TraceUnderCrosshairs(FHitResult& TraceHitResult)
 			DrawDebugSphere(
 			GetWorld(),
 			TraceHitResult.ImpactPoint,
-			BrushSize*10,
+			BrushSize * 50,
 			12,
 			FColor::Green
 			);
@@ -188,16 +188,15 @@ void APlayerCharacter::EditWeights(float terraform)
 {
 	if (TraceHitInfo.GetActor() && TraceHitInfo.GetActor()->IsA<AMarchingChunk>())
 	{
-		// if(GEngine)
-		// 	GEngine->AddOnScreenDebugMessage(-1, 0.f, FColor::Yellow, FString::Printf(TEXT("HitLoc: x: %f y: %f z: %f \n"),
-		// 		TraceHitInfo.ImpactPoint.X,TraceHitInfo.ImpactPoint.Y,TraceHitInfo.ImpactPoint.Z));
-
-		
-		// The hit actor is of type AMarchingChunk
 		AMarchingChunk* Chunk = Cast<AMarchingChunk>(TraceHitInfo.GetActor());
 		if (Chunk)
 		{
 			int ChunkSize = Chunk->GridMetrics.PointsPerChunk;
+			FVector HitPositionLocal = Chunk->GetTransform().InverseTransformPosition(TraceHitInfo.ImpactPoint);
+			// Calculate the influence area based on the brush size
+			float BrushRadiusSq = BrushSize * BrushSize;
+			float BrushRadiusSqInverse = 1.0f / BrushRadiusSq;
+
 			for (int x = 0; x < ChunkSize; x++)
 			{
 				for (int y = 0; y < ChunkSize; y++)
@@ -205,23 +204,25 @@ void APlayerCharacter::EditWeights(float terraform)
 					for (int z = 0; z < ChunkSize; z++)
 					{
 						// Check whether we are inside of our grid
-						if (x >= (ChunkSize - 1) || y >= (ChunkSize - 1) || z >= (ChunkSize - 1))
+						if (x >= ChunkSize - 1 || y >= ChunkSize - 1 || z >= ChunkSize - 1)
 						{
 							return;
 						}
+						// Calculate influence based on distance
+						float DistSq = (FVector(x, y, z) * Chunk->GridMetrics.Distance - HitPositionLocal).SizeSquared();
+						float Influence = FMath::Clamp(1.0f - (DistSq * BrushRadiusSqInverse), 0.0f, 1.0f);
 
-						float Distance = FVector::Dist(TraceHitInfo.ImpactPoint, FVector(x,y,z) * Chunk->GridMetrics.Distance);
-						
-						if (Distance <= BrushSize)
+						if (DistSq < BrushRadiusSq)
 						{
-							if(GEngine)
-								GEngine->AddOnScreenDebugMessage(-1, 0.f, FColor::Yellow, FString::Printf(TEXT("1 \n")));
-							Chunk->Weights[Chunk->IndexFromCoord( x, y, z )] += terraform * TerraformStrength;
-							//Chunk->UpdateMesh();
+							// Modify the weight value instead of directly modifying the vertices
+							Chunk->Weights[Chunk->IndexFromCoord(x, y, z)] += terraform * Influence * TerraformStrength;
 						}
 					}
 				}
 			}
+
+			// Update the procedural mesh with the modified weights
+			Chunk->UpdateMesh();
 		}
 	}
 }
@@ -253,16 +254,10 @@ void APlayerCharacter::DeformMesh(float terraform)
 					float Influence = FMath::Clamp(1.0f - (DistSq * BrushRadiusSqInverse), 0.0f, 1.0f);
 
 					// Apply the deformation to the vertex
-					
-					
-					// VertexLocal.X += 0.33*terraform * Influence * TerraformStrength * TraceHitInfo.Normal.Normalize();
-					// VertexLocal.Y += 0.33*terraform * Influence * TerraformStrength * TraceHitInfo.Normal.Normalize();
-					// VertexLocal.Z += 0.33*terraform * Influence * TerraformStrength * TraceHitInfo.Normal.Normalize();
-
-					// Update the vertex in the chunk's vertices array
-
 					FVector n = TraceHitInfo.Normal.GetSafeNormal() * terraform * Influence * TerraformStrength;
 					VertexLocal += n;
+					
+					// Update the vertex in the chunk's vertices array
 					Chunk->Verts[i] = VertexLocal;
 				}
 			}

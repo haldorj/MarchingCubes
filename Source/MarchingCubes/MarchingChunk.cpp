@@ -8,7 +8,7 @@
 
 AMarchingChunk::AMarchingChunk()
 {
-	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bCanEverTick = false;
 	
 	ProceduralMesh = CreateDefaultSubobject<UProceduralMeshComponent>("ProceduralMesh");
 	RootComponent = ProceduralMesh;
@@ -22,10 +22,12 @@ AMarchingChunk::AMarchingChunk()
 void AMarchingChunk::BeginPlay()
 {
 	Super::BeginPlay();
-
+	
+	Seed = FMath::Rand();
 	PopulateTerrainMap();
 	Initialize();
 	UpdateMesh();
+	
 	//DrawDebugBoxes();
 }
 
@@ -99,10 +101,8 @@ void AMarchingChunk::UpdateMesh()
 	if (ProceduralMesh)
 	{
 		// Update the procedural mesh component with the modified vertex data
-		ConstructMesh();
 
-		// Optionally, update other mesh data (normals, UVs, tangents, etc.) if needed
-
+		// Recalculate normals
 		Normals = CalcAverageNormals(Verts, Tris);
 		
 		// Notify the procedural mesh component that it needs to update
@@ -113,6 +113,18 @@ void AMarchingChunk::UpdateMesh()
 
 		ProceduralMesh->SetMaterial(0, Material);
 	}
+}
+
+void AMarchingChunk::ClearMesh()
+{
+	TArray<FVector> EmptyVertices;
+	TArray<FVector> EmptyNormals;
+	TArray<FVector2D> EmptyUVs;
+	TArray<FColor> EmptyVertexColors;
+	TArray<FProcMeshTangent> EmptyTangents;
+
+	// Clear existing mesh sections by updating them with empty data
+	ProceduralMesh->UpdateMeshSection(0, EmptyVertices, EmptyNormals, EmptyUVs, EmptyVertexColors, EmptyTangents);
 }
 
 int AMarchingChunk::IndexFromCoord(int x, int y, int z) const
@@ -184,16 +196,19 @@ void AMarchingChunk::Initialize()
 
 void AMarchingChunk::ConstructMesh()
 {
-	ProceduralMesh->ClearAllMeshSections();
+	if (ProceduralMesh)
+	{
+		ProceduralMesh->ClearAllMeshSections();
 	
-	ProceduralMesh->CreateMeshSection(0,
-	Verts,
-	Tris,
-	Normals,
-	UVMap,
-	TArray<FColor>(),
-	TArray<FProcMeshTangent>(),
-	true);
+		ProceduralMesh->CreateMeshSection(0,
+		Verts,
+		Tris,
+		Normals,
+		UVMap,
+		TArray<FColor>(),
+		TArray<FProcMeshTangent>(),
+		true);
+	}
 }
 
 void AMarchingChunk::DrawDebugBoxes()
@@ -224,15 +239,6 @@ void AMarchingChunk::DrawDebugBoxes()
 				}
 			}
 		}
-	}
-}
-
-void AMarchingChunk::GenerateRandomVals()
-{
-	//UE_LOG(LogTemp, Warning, TEXT("Number of vertices: %i \n"), Weights.Num());
-	for (int i = 0; i < Weights.Num(); i++)
-	{
-		Weights[i] = FMath::FRandRange(0.0f, 1.0f);
 	}
 }
 

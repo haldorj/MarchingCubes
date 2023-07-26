@@ -48,6 +48,7 @@ private:
 	void PopulateTerrainMap();
 	void GenerateMeshData(TArray<FTriangle> triangles);
 	void ConstructMesh();
+	void ClearMesh();
 	
 	void DrawDebugBoxes();
 	void GenerateRandomVals();
@@ -61,7 +62,7 @@ public:
 	TArray<FVector> Normals;
 	TArray<FVector2D> UVMap;
 
-	float time = 6.0;
+	float time = 5.0;
 	
 	TArray<FTriangle> Triangles;
 	
